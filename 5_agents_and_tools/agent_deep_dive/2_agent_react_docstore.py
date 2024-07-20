@@ -9,7 +9,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import Tool
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,19 +22,15 @@ persistent_directory = os.path.join(db_dir, "chroma_db_with_metadata")
 # Check if the Chroma vector store already exists
 if os.path.exists(persistent_directory):
     print("Loading existing vector store...")
-    db = Chroma(persist_directory=persistent_directory,
-                embedding_function=None)
+    db = Chroma(persist_directory=persistent_directory, embedding_function=None)
 else:
-    raise FileNotFoundError(
-        f"The directory {persistent_directory} does not exist. Please check the path."
-    )
+    raise FileNotFoundError(f"The directory {persistent_directory} does not exist. Please check the path.")
 
 # Define the embedding model
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 
 # Load the existing vector store with the embedding function
-db = Chroma(persist_directory=persistent_directory,
-            embedding_function=embeddings)
+db = Chroma(persist_directory=persistent_directory, embedding_function=embeddings)
 
 # Create a retriever for querying the vector store
 # `search_type` specifies the type of search (e.g., similarity)
@@ -45,7 +41,7 @@ retriever = db.as_retriever(
 )
 
 # Create a ChatOpenAI model
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -69,9 +65,7 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages(
 
 # Create a history-aware retriever
 # This uses the LLM to help reformulate the question based on chat history
-history_aware_retriever = create_history_aware_retriever(
-    llm, retriever, contextualize_q_prompt
-)
+history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
 # Answer question prompt
 # This system prompt helps the AI understand that it should provide concise answers
@@ -100,8 +94,7 @@ qa_prompt = ChatPromptTemplate.from_messages(
 question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
 # Create a retrieval chain that combines the history-aware retriever and the question answering chain
-rag_chain = create_retrieval_chain(
-    history_aware_retriever, question_answer_chain)
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
 
 # Set Up ReAct Agent with Document Store Retriever
@@ -111,9 +104,7 @@ react_docstore_prompt = hub.pull("hwchase17/react")
 tools = [
     Tool(
         name="Answer Question",
-        func=lambda input, **kwargs: rag_chain.invoke(
-            {"input": input, "chat_history": kwargs.get("chat_history", [])}
-        ),
+        func=lambda input, **kwargs: rag_chain.invoke({"input": input, "chat_history": kwargs.get("chat_history", [])}),
         description="useful for when you need to answer questions about the context",
     )
 ]
@@ -126,7 +117,10 @@ agent = create_react_agent(
 )
 
 agent_executor = AgentExecutor.from_agent_and_tools(
-    agent=agent, tools=tools, handle_parsing_errors=True, verbose=True,
+    agent=agent,
+    tools=tools,
+    handle_parsing_errors=True,
+    verbose=True,
 )
 
 chat_history = []
@@ -134,8 +128,7 @@ while True:
     query = input("You: ")
     if query.lower() == "exit":
         break
-    response = agent_executor.invoke(
-        {"input": query, "chat_history": chat_history})
+    response = agent_executor.invoke({"input": query, "chat_history": chat_history})
     print(f"AI: {response['output']}")
 
     # Update history

@@ -1,5 +1,6 @@
 import os
 
+from dotenv import load_dotenv
 from langchain.text_splitter import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
@@ -9,7 +10,9 @@ from langchain.text_splitter import (
 )
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+load_dotenv()
 
 # Define the directory containing the text file
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,17 +21,15 @@ db_dir = os.path.join(current_dir, "db")
 
 # Check if the text file exists
 if not os.path.exists(file_path):
-    raise FileNotFoundError(
-        f"The file {file_path} does not exist. Please check the path."
-    )
+    raise FileNotFoundError(f"The file {file_path} does not exist. Please check the path.")
 
 # Read the text content from the file
-loader = TextLoader(file_path)
+loader = TextLoader(file_path, encoding="UTF-8")
 documents = loader.load()
 
 # Define the embedding model
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-small"
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004"
 )  # Update to a valid embedding model if needed
 
 
@@ -37,13 +38,10 @@ def create_vector_store(docs, store_name):
     persistent_directory = os.path.join(db_dir, store_name)
     if not os.path.exists(persistent_directory):
         print(f"\n--- Creating vector store {store_name} ---")
-        db = Chroma.from_documents(
-            docs, embeddings, persist_directory=persistent_directory
-        )
+        db = Chroma.from_documents(docs, embeddings, persist_directory=persistent_directory)
         print(f"--- Finished creating vector store {store_name} ---")
     else:
-        print(
-            f"Vector store {store_name} already exists. No need to initialize.")
+        print(f"Vector store {store_name} already exists. No need to initialize.")
 
 
 # 1. Character-based Splitting
@@ -74,8 +72,7 @@ create_vector_store(token_docs, "chroma_db_token")
 # Attempts to split text at natural boundaries (sentences, paragraphs) within character limit.
 # Balances between maintaining coherence and adhering to character limits.
 print("\n--- Using Recursive Character-based Splitting ---")
-rec_char_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, chunk_overlap=100)
+rec_char_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 rec_char_docs = rec_char_splitter.split_documents(documents)
 create_vector_store(rec_char_docs, "chroma_db_rec_char")
 
@@ -101,9 +98,7 @@ def query_vector_store(store_name, query):
     persistent_directory = os.path.join(db_dir, store_name)
     if os.path.exists(persistent_directory):
         print(f"\n--- Querying the Vector Store {store_name} ---")
-        db = Chroma(
-            persist_directory=persistent_directory, embedding_function=embeddings
-        )
+        db = Chroma(persist_directory=persistent_directory, embedding_function=embeddings)
         retriever = db.as_retriever(
             search_type="similarity_score_threshold",
             search_kwargs={"k": 1, "score_threshold": 0.1},

@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.document_loaders import FireCrawlLoader
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Load environment variables from .env
 load_dotenv()
@@ -24,8 +24,7 @@ def create_vector_store():
 
     # Step 1: Crawl the website using FireCrawlLoader
     print("Begin crawling the website...")
-    loader = FireCrawlLoader(
-        api_key=api_key, url="https://apple.com", mode="scrape")
+    loader = FireCrawlLoader(api_key=api_key, url="https://apple.com", mode="scrape")
     docs = loader.load()
     print("Finished crawling the website.")
 
@@ -45,13 +44,11 @@ def create_vector_store():
     print(f"Sample chunk:\n{split_docs[0].page_content}\n")
 
     # Step 3: Create embeddings for the document chunks
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 
     # Step 4: Create and persist the vector store with the embeddings
     print(f"\n--- Creating vector store in {persistent_directory} ---")
-    db = Chroma.from_documents(
-        split_docs, embeddings, persist_directory=persistent_directory
-    )
+    db = Chroma.from_documents(split_docs, embeddings, persist_directory=persistent_directory)
     print(f"--- Finished creating vector store in {persistent_directory} ---")
 
 
@@ -59,13 +56,11 @@ def create_vector_store():
 if not os.path.exists(persistent_directory):
     create_vector_store()
 else:
-    print(
-        f"Vector store {persistent_directory} already exists. No need to initialize.")
+    print(f"Vector store {persistent_directory} already exists. No need to initialize.")
 
 # Load the vector store with the embeddings
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-db = Chroma(persist_directory=persistent_directory,
-            embedding_function=embeddings)
+embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+db = Chroma(persist_directory=persistent_directory, embedding_function=embeddings)
 
 
 # Step 5: Query the vector store
